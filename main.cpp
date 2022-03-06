@@ -13,26 +13,15 @@ using std::cout; using std::cin;
 using std::endl; using std::string;
 namespace fs = std::filesystem;
 
-char* permissions(const char *filename){
+bool needChange(const string& path) {
+    const char *cpath = path.c_str();
     struct stat st;
-    char *modeval = (char*)malloc(sizeof(char) * 9 + 1);
-    if(stat(filename, &st) == 0){
-        mode_t perm = st.st_mode;
-        modeval[0] = (perm & S_IRUSR) ? 'r' : '-';
-        modeval[1] = (perm & S_IWUSR) ? 'w' : '-';
-        modeval[2] = (perm & S_IXUSR) ? 'x' : '-';
-        modeval[3] = (perm & S_IRGRP) ? 'r' : '-';
-        modeval[4] = (perm & S_IWGRP) ? 'w' : '-';
-        modeval[5] = (perm & S_IXGRP) ? 'x' : '-';
-        modeval[6] = (perm & S_IROTH) ? 'r' : '-';
-        modeval[7] = (perm & S_IWOTH) ? 'w' : '-';
-        modeval[8] = (perm & S_IXOTH) ? 'x' : '-';
-        modeval[9] = '\0';
-        return modeval;
-    }
-    else{
-        return "bad";
-    }
+    if(stat(cpath, &st)) return false;//bad file, not try change attributes
+    mode_t perm = st.st_mode;
+    mode_t mask = S_IRUSR | S_IWUSR | S_IXUSR |
+                  S_IRGRP | S_IWGRP | S_IXGRP |
+                  S_IROTH | S_IWOTH | S_IXOTH;
+    return (perm & mask) == mask;
 }
 
 
@@ -52,12 +41,14 @@ void listDirectory(string currentDir) {
     std::sort(fileNames.begin(), fileNames.end());
     for (const string& name: fileNames) {
         string path =  pwd+ "/" + name;
-        cout << path << "  " << permissions(path.c_str()) << endl;
+        if (needChange(path))
+            cout << path << endl;
     }
     for (const string& name: dirNames) {
         string path =  pwd+ "/" + name;
         listDirectory(path);
-        cout << path << "  " << permissions(path.c_str()) << endl;
+        if (needChange(path))
+            cout << path << endl;
     }
 }
 
