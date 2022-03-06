@@ -1,13 +1,17 @@
-/*goal: correct Linux attributes after copying to usb drive */
+/*goal: correct Linux attributes after copying to usb drive
+ * files: no write by others, no executes
+ * directories: no write by others
+ * */
 #include <iostream>
-//#include <vector>
+#include <vector>
 #include <sys/stat.h>
 #include <string>
+#include <algorithm>
 #include <filesystem>
 
 using std::cout; using std::cin;
 using std::endl; using std::string;
-using std::filesystem::directory_iterator;
+namespace fs = std::filesystem;
 
 char* permissions(const char *filename){
     struct stat st;
@@ -31,12 +35,33 @@ char* permissions(const char *filename){
     }
 }
 
+
+void listDirectory(string currentDir) {
+    fs::path dirPath(currentDir);
+    string pwd = canonical(dirPath).string();
+    std::vector<string> fileNames;
+    std::vector<string> dirNames;
+    for (const auto &file: fs::directory_iterator(pwd)) {
+        string name = file.path().filename().string();
+        if (file.is_directory())
+            dirNames.push_back(name);
+        else
+            fileNames.push_back(name);
+    }
+    std::sort(dirNames.begin(), dirNames.end());
+    std::sort(fileNames.begin(), fileNames.end());
+    for (const string& name: fileNames) {
+        string path =  pwd+ "/" + name;
+        cout << path << "  " << permissions(path.c_str()) << endl;
+    }
+    for (const string& name: dirNames) {
+        string path =  pwd+ "/" + name;
+        listDirectory(path);
+        cout << path << "  " << permissions(path.c_str()) << endl;
+    }
+}
+
 int main() {
-    string path = "..";
-
-    for (const auto & file : directory_iterator(path))
-        cout << file.path().filename().string() << "   " << file.is_directory() <<
-        "  " << permissions(file.path().string().c_str()) << endl;
-
+    listDirectory("..");
     return EXIT_SUCCESS;
 }
