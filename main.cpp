@@ -1,7 +1,3 @@
-/*goal: correct Linux attributes after copying to usb drive
- * files: no write by others, no executes
- * directories: no write by others
- * */
 #include <iostream>
 #include <vector>
 #include <sys/stat.h>
@@ -24,6 +20,17 @@ bool needChange(const string& path) {
     return (perm & mask) == mask;
 }
 
+void changePerm(const string& path, bool isDir) {
+    const char *cpath = path.c_str();
+    struct stat st;
+    if(stat(cpath, &st)) return;
+    mode_t perm = st.st_mode;
+    if (isDir)
+        chmod(cpath, perm & ~S_IWOTH);
+    else
+        chmod(cpath, perm & ~(S_IWOTH | S_IXUSR | S_IXGRP | S_IXOTH));
+}
+
 
 void listDirectory(string currentDir) {
     fs::path dirPath(currentDir);
@@ -41,18 +48,22 @@ void listDirectory(string currentDir) {
     std::sort(fileNames.begin(), fileNames.end());
     for (const string& name: fileNames) {
         string path =  pwd+ "/" + name;
-        if (needChange(path))
+        if (needChange(path)) {
             cout << path << endl;
+            changePerm(path, false);
+        }
     }
     for (const string& name: dirNames) {
         string path =  pwd+ "/" + name;
         listDirectory(path);
-        if (needChange(path))
+        if (needChange(path)) {
             cout << path << endl;
+            changePerm(path, true);
+        }
     }
 }
 
 int main() {
-    listDirectory("..");
+    listDirectory(".");
     return EXIT_SUCCESS;
 }
