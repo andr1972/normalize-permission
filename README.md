@@ -1,6 +1,6 @@
 # normalize-permission
 
-Call it with directory to change
+Call it in directory to change
 
 correct Linux attributes after copying to usb drive
 * files: no write by others, no executes
