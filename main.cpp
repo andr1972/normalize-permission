@@ -9,15 +9,16 @@ using std::cout; using std::cin;
 using std::endl; using std::string;
 namespace fs = std::filesystem;
 
+int beforePerm = 0, afterPerm = 0;
+bool recursive = false;
+bool dry = false;
+
 bool needChange(const string& path) {
     const char *cpath = path.c_str();
     struct stat st;
     if(stat(cpath, &st)) return false;//bad file, not try change attributes
-    mode_t perm = st.st_mode;
-    mode_t mask = S_IRUSR | S_IWUSR | S_IXUSR |
-                  S_IRGRP | S_IWGRP | S_IXGRP |
-                  S_IROTH | S_IWOTH | S_IXOTH;
-    return (perm & mask) == mask;
+    mode_t perm = st.st_mode & 0777;
+    return perm == beforePerm;
 }
 
 void changePerm(const string& path, bool isDir) {
@@ -25,10 +26,7 @@ void changePerm(const string& path, bool isDir) {
     struct stat st;
     if(stat(cpath, &st)) return;
     mode_t perm = st.st_mode;
-    if (isDir)
-        chmod(cpath, perm & ~S_IWOTH);
-    else
-        chmod(cpath, perm & ~(S_IWOTH | S_IXUSR | S_IXGRP | S_IXOTH));
+    chmod(cpath, afterPerm);
 }
 
 
@@ -50,16 +48,14 @@ void listDirectory(string currentDir) {
         string path =  pwd+ "/" + name;
         if (needChange(path)) {
             cout << path << endl;
-            changePerm(path, false);
+            if (!dry)
+                changePerm(path, false);
         }
     }
+    if (recursive)
     for (const string& name: dirNames) {
         string path =  pwd+ "/" + name;
         listDirectory(path);
-        if (needChange(path)) {
-            cout << path << endl;
-            changePerm(path, true);
-        }
     }
 }
 
@@ -71,44 +67,59 @@ void help() {
     cout << "example: ~/normalizeAttr 755 644 -r -dry" << endl;
 }
 
-int beforeAttr = 0, afterAttr = 0;
-
-void processParameters(int argc, char ** argv) {
+bool processParameters(int argc, char ** argv) {
     int n = 0, nErrors = 0;
     for (int i = 1; i < argc; i++) {
         string arg = argv[i];
         if (arg[0] == '-') {
             if (arg == "-r")
-                ;
+                recursive = true;
             else if (arg == "-dry")
-                ;
-            else
+                dry = true;
+            else {
                 cout << "unknown option: " << arg << endl;
+                nErrors++;
+            }
         }
         else {
             size_t processedChars = 0;
             int number = std::stoi(arg, &processedChars, 8);
-            if (processedChars != arg.length())
+            if (processedChars != arg.length()) {
                 cout << "bad permission: " << arg << endl;
-            else if (number >= 0777)
+                nErrors++;
+            }
+            else if (number >= 0777) {
                 cout << "permission must be from 000 to 777: " << arg << endl;
+                nErrors++;
+            }
             if (n==0)
-                beforeAttr = number;
+                beforePerm = number;
             else if (n==1)
-                afterAttr = number;
-            else
+                afterPerm = number;
+            else {
                 cout << "must be only two permissions: " << arg << endl;
+                nErrors++;
+            }
             n++;
         }
     }
-    if (n<2)
+    if (n<2) {
         cout << "must be two permissions" << endl;
+        nErrors++;
+    }
+    return nErrors == 0;
 }
 
 int main(int argc,  char**argv) {
-    processParameters(argc,argv);
-    cout << "---------------" <<endl;
-    help();
-    //listDirectory(".");
+    if (argc == 1) {
+        help();
+        return 0;
+    }
+    if (!processParameters(argc,argv)) {
+        cout << "---------------" <<endl;
+        help();
+        return 1;
+    }
+    listDirectory(".");
     return EXIT_SUCCESS;
 }
