@@ -63,7 +63,52 @@ void listDirectory(string currentDir) {
     }
 }
 
-int main() {
-    listDirectory(".");
+void help() {
+    cout << "changes permission of files, not directories" << endl;
+    cout << "call: normalizeAttr octBefore octAfter" << endl;
+    cout << "-r: recursive" << endl;
+    cout << "-dry: only output names, not change" << endl;
+    cout << "example: ~/normalizeAttr 755 644 -r -dry" << endl;
+}
+
+int beforeAttr = 0, afterAttr = 0;
+
+void processParameters(int argc, char ** argv) {
+    int n = 0, nErrors = 0;
+    for (int i = 1; i < argc; i++) {
+        string arg = argv[i];
+        if (arg[0] == '-') {
+            if (arg == "-r")
+                ;
+            else if (arg == "-dry")
+                ;
+            else
+                cout << "unknown option: " << arg << endl;
+        }
+        else {
+            size_t processedChars = 0;
+            int number = std::stoi(arg, &processedChars, 8);
+            if (processedChars != arg.length())
+                cout << "bad permission: " << arg << endl;
+            else if (number >= 0777)
+                cout << "permission must be from 000 to 777: " << arg << endl;
+            if (n==0)
+                beforeAttr = number;
+            else if (n==1)
+                afterAttr = number;
+            else
+                cout << "must be only two permissions: " << arg << endl;
+            n++;
+        }
+    }
+    if (n<2)
+        cout << "must be two permissions" << endl;
+}
+
+int main(int argc,  char**argv) {
+    processParameters(argc,argv);
+    cout << "---------------" <<endl;
+    help();
+    //listDirectory(".");
     return EXIT_SUCCESS;
 }
